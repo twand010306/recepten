@@ -26,6 +26,14 @@
     "plugins": [
       "expo-router",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "De app gebruikt foto's om recepten uit kookboeken over te nemen.",
+          "cameraPermission": "De app gebruikt de camera om recepten uit kookboeken te lezen.",
+          "microphonePermission": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",
