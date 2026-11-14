@@ -1,98 +1,193 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useState } from 'react';
+import {
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+type Recipe = {
+  id: string;
+  title: string;
+  ingredients: string;
+};
 
 export default function HomeScreen() {
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [title, setTitle] = useState('');
+  const [ingredients, setIngredients] = useState('');
+
+  useEffect(() => {
+    void loadRecipes();
+  }, []);
+
+  const loadRecipes = async () => {
+    try {
+      const savedRecipes = await AsyncStorage.getItem('@recipes');
+      if (savedRecipes !== null) {
+        setRecipes(JSON.parse(savedRecipes) as Recipe[]);
+      }
+    } catch (error) {
+      console.error('Fout bij het laden van recepten', error);
+    }
+  };
+
+  const saveRecipes = async (newRecipes: Recipe[]) => {
+    try {
+      await AsyncStorage.setItem('@recipes', JSON.stringify(newRecipes));
+    } catch (error) {
+      console.error('Fout bij het opslaan van recepten', error);
+    }
+  };
+
+  const addRecipe = () => {
+    if (title.trim() === '' || ingredients.trim() === '') {
+      Alert.alert('Vul zowel de naam van het recept als de ingrediënten in!');
+      return;
+    }
+
+    const newRecipe = {
+      id: Date.now().toString(),
+      title,
+      ingredients,
+    };
+
+    const updatedRecipes = [newRecipe, ...recipes];
+    setRecipes(updatedRecipes);
+    void saveRecipes(updatedRecipes);
+    setTitle('');
+    setIngredients('');
+  };
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <Text style={styles.header}>Mijn Recepten App 🍳</Text>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+      <View style={styles.form}>
+        <TextInput
+          style={styles.input}
+          placeholder="Naam van het recept (bijv. Pannenkoeken)"
+          placeholderTextColor="#888"
+          value={title}
+          onChangeText={setTitle}
+        />
+        <TextInput
+          style={[styles.input, styles.textArea]}
+          placeholder="Ingrediënten (bijv. bloem, melk, eieren)"
+          placeholderTextColor="#888"
+          value={ingredients}
+          onChangeText={setIngredients}
+          multiline
+        />
+        <TouchableOpacity style={styles.button} onPress={addRecipe}>
+          <Text style={styles.buttonText}>Recept Toevoegen</Text>
+        </TouchableOpacity>
+      </View>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+      <Text style={styles.subHeader}>Jouw Recepten:</Text>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      <FlatList
+        data={recipes}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.recipeCard}>
+            <Text style={styles.recipeTitle}>{item.title}</Text>
+            <Text style={styles.recipeIngredients}>{item.ingredients}</Text>
+          </View>
+        )}
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>
+            Nog geen recepten toegevoegd. Voeg je eerste recept hierboven toe!
+          </Text>
+        }
+      />
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    backgroundColor: '#f9f9f9',
+    paddingTop: 60,
+    paddingHorizontal: 20,
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
+  header: {
+    fontSize: 26,
+    fontWeight: 'bold',
     textAlign: 'center',
+    marginBottom: 20,
+    color: '#333',
   },
-  code: {
-    textTransform: 'uppercase',
+  form: {
+    marginBottom: 20,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  input: {
+    backgroundColor: '#fff',
+    padding: 14,
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    fontSize: 16,
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  button: {
+    backgroundColor: '#ff6b6b',
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  subHeader: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#333',
+  },
+  recipeCard: {
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#eee',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  recipeTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#ff6b6b',
+    marginBottom: 5,
+  },
+  recipeIngredients: {
+    fontSize: 14,
+    color: '#666',
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#888',
+    marginTop: 20,
+    fontStyle: 'italic',
   },
 });
